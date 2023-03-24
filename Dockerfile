@@ -1,4 +1,4 @@
-FROM rustlang/rust:nightly-buster-slim AS build
+FROM rustlang/rust:1.68-slim-bullseye AS build
 
 RUN apt-get update
 RUN apt-get install -y musl-tools
