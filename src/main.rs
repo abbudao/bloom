@@ -110,7 +110,7 @@ fn spawn_worker() {
     }
 }
 
-fn main() {
+pub fn main() {
     let _logger = ConfigLogger::init(
         LevelFilter::from_str(&APP_CONF.server.log_level).expect("invalid log level"),
     );

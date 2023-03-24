@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  echo-server:
+    image: ealen/echo-server
+    ports:
+      - 3000:80
