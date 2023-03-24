@@ -161,7 +161,7 @@ impl ControlHandle {
             .is_ok());
     }
 
-    fn ensure_hasher(mut stream: &TcpStream) -> Result<Option<()>, ControlHandleError> {
+    fn ensure_hasher(mut stream: &TcpStream) -> Result<(), ControlHandleError> {
         let test_value: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(HASH_VALUE_SIZE)
@@ -195,7 +195,7 @@ impl ControlHandle {
 
                     // Validate hash
                     if !res_hash.is_empty() && res_hash == test_hash {
-                        return Ok(None);
+                        return Ok(());
                     }
 
                     return Err(ControlHandleError::IncompatibleHasher);
