@@ -1,6 +1,6 @@
 on: [push, pull_request]
 
-name: Test and Build
+name: Test, Build and Lint
 
 jobs:
   test:
@@ -30,7 +30,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust-toolchain }}
-          components: rustfmt
           override: true
 
       - name: Verify versions
@@ -42,5 +41,44 @@ jobs:
       - name: Test code
         run: cargo test
 
-      - name: Check code style
-        run: cargo fmt -- --check
+  lint:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust-toolchain: [stable]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Cache build artifacts
+        id: cache-cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: test-${{ runner.os }}-cargo-${{ matrix.rust-toolchain }}
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust-toolchain }}
+          components: rustfmt, clippy
+          override: true
+
+      - name: Check with rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - name: Check with Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --workspace --tests --all-features
