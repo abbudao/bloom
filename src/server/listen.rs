@@ -17,17 +17,10 @@ lazy_static! {
         Arc::new(Mutex::new(Cell::new(None)));
 }
 
-pub struct ServerListenBuilder;
 pub struct ServerListen;
 
-impl ServerListenBuilder {
-    pub fn new() -> ServerListen {
-        ServerListen {}
-    }
-}
-
 impl ServerListen {
-    pub fn run(&self) {
+    pub fn run() {
         let addr = APP_CONF.server.inet;
         let server = Http::new()
             .bind(&addr, move || {

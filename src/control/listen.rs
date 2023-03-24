@@ -11,17 +11,10 @@ use std::thread;
 use super::handle::ControlHandle;
 use crate::{APP_CONF, THREAD_NAME_CONTROL_CLIENT, THREAD_NAME_CONTROL_MASTER};
 
-pub struct ControlListenBuilder;
 pub struct ControlListen;
 
-impl ControlListenBuilder {
-    pub fn new() -> ControlListen {
-        ControlListen {}
-    }
-}
-
 impl ControlListen {
-    pub fn run(&self) {
+    pub fn run() {
         thread::Builder::new()
             .name(THREAD_NAME_CONTROL_MASTER.to_string())
             .spawn(move || {

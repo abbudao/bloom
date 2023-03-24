@@ -79,11 +79,11 @@ impl ProxyServe {
                 .or_else(|_| Err(Error::Incomplete))
                 .and_then(move |result| match result {
                     Ok(value) => Self::dispatch_cached(
-                        shard, ns, ns_mask, auth_hash, method, uri, version, headers, body,
+                        shard, ns, ns_mask, auth_hash, method, &uri, version, &headers, body,
                         value.0, value.1,
                     ),
                     Err(_) => Self::tunnel_over_proxy(
-                        shard, ns, ns_mask, auth_hash, method, uri, version, headers, body,
+                        shard, ns, ns_mask, auth_hash, method, &uri, version, &headers, body,
                     ),
                 }),
         )
@@ -132,7 +132,7 @@ impl ProxyServe {
                                 &isnt_modified, &ns_string
                             );
 
-                            Self::fetch_cached_data_body(ns_string, fingerprint, !isnt_modified)
+                            Self::fetch_cached_data_body(&ns_string, fingerprint, !isnt_modified)
                         }
                         _ => Box::new(future::ok(Err(()))),
                     }
@@ -146,16 +146,15 @@ impl ProxyServe {
     }
 
     fn fetch_cached_data_body(
-        ns: String,
+        ns: &str,
         fingerprint: String,
         do_acquire_body: bool,
     ) -> ProxyServeResultFuture {
-        // Do not acquire body? (not modified)
-        let body_fetcher = if !do_acquire_body {
-            Box::new(future::ok(Ok(None)))
-        } else {
+        let body_fetcher = if do_acquire_body {
             // Will acquire body (modified)
-            CacheRead::acquire_body(&ns)
+            CacheRead::acquire_body(ns)
+        } else {
+            Box::new(future::ok(Ok(None)))
         };
 
         Box::new(
@@ -179,9 +178,9 @@ impl ProxyServe {
         ns_mask: String,
         auth_hash: String,
         method: Method,
-        uri: Uri,
+        uri: &Uri,
         version: HttpVersion,
-        headers: Headers,
+        headers: &Headers,
         body: Body,
     ) -> ProxyServeResponseFuture {
         // Clone method value for closures. Sadly, it looks like Rust borrow \
@@ -190,7 +189,7 @@ impl ProxyServe {
         let method_failure = method.clone();
 
         Box::new(
-            ProxyTunnel::run(&method, &uri, &headers, body, shard)
+            ProxyTunnel::run(&method, uri, headers, body, shard)
                 .and_then(move |tunnel_res| {
                     CacheWrite::save(
                         ns,
@@ -207,7 +206,7 @@ impl ProxyServe {
                 .and_then(move |mut result| match result.body {
                     Ok(body_string) => Self::dispatch_fetched(
                         &method_success,
-                        &result.status,
+                        result.status,
                         result.headers,
                         HeaderBloomStatusValue::Miss,
                         body_string,
@@ -222,7 +221,7 @@ impl ProxyServe {
 
                                 Self::dispatch_fetched(
                                     &method_success,
-                                    &result.status,
+                                    result.status,
                                     result.headers,
                                     HeaderBloomStatusValue::Direct,
                                     body_string,
@@ -243,9 +242,9 @@ impl ProxyServe {
         ns_mask: String,
         auth_hash: String,
         method: Method,
-        req_uri: Uri,
+        req_uri: &Uri,
         req_version: HttpVersion,
-        req_headers: Headers,
+        req_headers: &Headers,
         req_body: Body,
         res_fingerprint: String,
         res_string: Option<String>,
@@ -326,7 +325,7 @@ impl ProxyServe {
 
     fn dispatch_fetched(
         method: &Method,
-        status: &StatusCode,
+        status: StatusCode,
         mut headers: Headers,
         bloom_status: HeaderBloomStatusValue,
         body_string: String,
@@ -339,7 +338,7 @@ impl ProxyServe {
 
         headers.set(HeaderBloomStatus(bloom_status));
 
-        Self::respond(method, *status, headers, body_string)
+        Self::respond(method, status, headers, body_string)
     }
 
     fn dispatch_failure(method: &Method) -> ProxyServeResponseFuture {

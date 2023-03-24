@@ -175,45 +175,43 @@ impl ControlHandle {
             test_value, test_hash
         );
 
-        loop {
-            let mut read = [0; HASH_RESULT_SIZE];
+        let mut read = [0; HASH_RESULT_SIZE];
 
-            match stream.read(&mut read) {
-                Ok(n) => {
-                    if n == 0 {
-                        return Err(ControlHandleError::Closed);
+        match stream.read(&mut read) {
+            Ok(n) => {
+                if n == 0 {
+                    return Err(ControlHandleError::Closed);
+                }
+
+                let mut parts = str::from_utf8(&read[0..n]).unwrap_or("").split_whitespace();
+
+                if parts.next().unwrap_or("") == "HASHRES" {
+                    let res_hash = parts.next().unwrap_or("");
+
+                    debug!(
+                        "got hasher response: {} and expecting: {}",
+                        res_hash, test_hash
+                    );
+
+                    // Validate hash
+                    if !res_hash.is_empty() && res_hash == test_hash {
+                        return Ok(None);
                     }
 
-                    let mut parts = str::from_utf8(&read[0..n]).unwrap_or("").split_whitespace();
-
-                    if parts.next().unwrap_or("") == "HASHRES" {
-                        let res_hash = parts.next().unwrap_or("");
-
-                        debug!(
-                            "got hasher response: {} and expecting: {}",
-                            res_hash, test_hash
-                        );
-
-                        // Validate hash
-                        if !res_hash.is_empty() && res_hash == test_hash {
-                            return Ok(None);
-                        }
-
-                        return Err(ControlHandleError::IncompatibleHasher);
-                    }
-
-                    return Err(ControlHandleError::NotRecognized);
+                    return Err(ControlHandleError::IncompatibleHasher);
                 }
-                Err(err) => {
-                    let err_reason = match err.kind() {
-                        ErrorKind::TimedOut => ControlHandleError::TimedOut,
-                        ErrorKind::ConnectionAborted => ControlHandleError::ConnectionAborted,
-                        ErrorKind::Interrupted => ControlHandleError::Interrupted,
-                        _ => ControlHandleError::Unknown,
-                    };
 
-                    return Err(err_reason);
-                }
+                Err(ControlHandleError::NotRecognized)
+            }
+            Err(err) => {
+                let err_reason = match err.kind() {
+                    ErrorKind::TimedOut => ControlHandleError::TimedOut,
+                    ErrorKind::ConnectionAborted => ControlHandleError::ConnectionAborted,
+                    ErrorKind::Interrupted => ControlHandleError::Interrupted,
+                    _ => ControlHandleError::Unknown,
+                };
+
+                Err(err_reason)
             }
         }
     }
@@ -229,22 +227,13 @@ impl ControlHandle {
 
         let mut result = ControlHandleMessageResult::Continue;
 
-        let response = match Self::handle_message(shard, message) {
-            Ok(resp) => match resp {
-                ControlCommandResponse::Ok
-                | ControlCommandResponse::Pong
-                | ControlCommandResponse::Ended
-                | ControlCommandResponse::Nil
-                | ControlCommandResponse::Void => {
-                    if resp == ControlCommandResponse::Ended {
-                        result = ControlHandleMessageResult::Close;
-                    }
-                    resp.to_str()
-                }
-                _ => ControlCommandResponse::Err.to_str(),
-            },
-            _ => ControlCommandResponse::Err.to_str(),
+        let handled_msg = Self::handle_message(shard, message);
+
+        if handled_msg == ControlCommandResponse::Ended {
+            result = ControlHandleMessageResult::Close;
         };
+
+        let response = handled_msg.to_str();
 
         if !response.is_empty() {
             write!(stream, "{response}{LINE_FEED}").expect("write failed");
@@ -255,23 +244,20 @@ impl ControlHandle {
         result
     }
 
-    fn handle_message(
-        shard: &mut ControlShard,
-        message: &str,
-    ) -> Result<ControlCommandResponse, Option<()>> {
+    fn handle_message(shard: &mut ControlShard, message: &str) -> ControlCommandResponse {
         let mut parts = message.split_whitespace();
         let command = parts.next().unwrap_or("");
 
         debug!("will dispatch command: {}", command);
 
         match command {
-            "" => Ok(ControlCommandResponse::Void),
+            "" => ControlCommandResponse::Void,
             "FLUSHB" => ControlCommand::dispatch_flush_bucket(shard, parts),
             "FLUSHA" => ControlCommand::dispatch_flush_auth(shard, parts),
             "PING" => ControlCommand::dispatch_ping(),
             "SHARD" => ControlCommand::dispatch_shard(shard, parts),
             "QUIT" => ControlCommand::dispatch_quit(),
-            _ => Ok(ControlCommandResponse::Nil),
+            _ => ControlCommandResponse::Nil,
         }
     }
 }

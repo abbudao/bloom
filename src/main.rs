@@ -40,12 +40,12 @@ use std::time::Duration;
 use clap::{App, Arg};
 use log::LevelFilter;
 
-use cache::store::{CacheStore, CacheStoreBuilder};
+use cache::store::CacheStore;
 use config::config::Config;
 use config::logger::ConfigLogger;
 use config::reader::ConfigReader;
-use control::listen::ControlListenBuilder;
-use server::listen::ServerListenBuilder;
+use control::listen::ControlListen;
+use server::listen::ServerListen;
 
 struct AppArgs {
     config: String,
@@ -60,7 +60,7 @@ pub static THREAD_NAME_CONTROL_CLIENT: &str = "bloom-control-client";
 lazy_static! {
     static ref APP_ARGS: AppArgs = make_app_args();
     static ref APP_CONF: Config = ConfigReader::make();
-    static ref APP_CACHE_STORE: CacheStore = CacheStoreBuilder::new();
+    static ref APP_CACHE_STORE: CacheStore = CacheStore::new();
 }
 
 fn make_app_args() -> AppArgs {
@@ -92,7 +92,7 @@ fn ensure_states() {
 fn spawn_worker() {
     let worker = thread::Builder::new()
         .name(THREAD_NAME_WORKER.to_string())
-        .spawn(|| ServerListenBuilder::new().run());
+        .spawn(ServerListen::run);
 
     // Block on worker thread (join it)
     let has_error = if let Ok(worker_thread) = worker {
@@ -123,7 +123,7 @@ fn main() {
     ensure_states();
 
     // Run control interface (in its own thread)
-    ControlListenBuilder::new().run();
+    ControlListen::run();
 
     // Run server (from main thread, maintain thread active if down)
     spawn_worker();

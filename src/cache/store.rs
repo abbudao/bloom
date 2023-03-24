@@ -28,8 +28,6 @@ lazy_static! {
     pub static ref EXECUTOR_POOL: CpuPool = CpuPool::new(APP_CONF.cache.executor_pool as usize);
 }
 
-pub struct CacheStoreBuilder;
-
 pub struct CacheStore {
     pool: Pool<RedisConnectionManager>,
 }
@@ -43,7 +41,7 @@ pub enum CacheStoreError {
     TooLarge,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum CachePurgeVariant {
     Bucket,
     Auth,
@@ -54,7 +52,7 @@ type CacheWriteResult = Result<String, (CacheStoreError, String)>;
 type CacheWriteResultFuture = Box<dyn Future<Item = CacheWriteResult, Error = ()>>;
 type CachePurgeResult = Result<(), CacheStoreError>;
 
-impl CacheStoreBuilder {
+impl CacheStore {
     pub fn new() -> CacheStore {
         info!(
             "binding to store backend at {}:{}",
@@ -73,31 +71,29 @@ impl CacheStoreBuilder {
 
         debug!("will connect to redis at: {}", tcp_addr_raw);
 
-        match RedisConnectionManager::new(tcp_addr_raw.as_ref()) {
-            Ok(manager) => {
-                let builder = Pool::builder()
-                    .test_on_check_out(false)
-                    .max_size(APP_CONF.redis.pool_size)
-                    .max_lifetime(Some(Duration::from_secs(
-                        APP_CONF.redis.max_lifetime_seconds,
-                    )))
-                    .idle_timeout(Some(Duration::from_secs(
-                        APP_CONF.redis.idle_timeout_seconds,
-                    )))
-                    .connection_timeout(Duration::from_secs(
-                        APP_CONF.redis.connection_timeout_seconds,
-                    ));
+        let manager = RedisConnectionManager::new(tcp_addr_raw.as_ref())
+            .expect("could not create redis connection manager");
 
-                match builder.build(manager) {
-                    Ok(pool) => {
-                        info!("bound to store backend");
+        let builder = Pool::builder()
+            .test_on_check_out(false)
+            .max_size(APP_CONF.redis.pool_size)
+            .max_lifetime(Some(Duration::from_secs(
+                APP_CONF.redis.max_lifetime_seconds,
+            )))
+            .idle_timeout(Some(Duration::from_secs(
+                APP_CONF.redis.idle_timeout_seconds,
+            )))
+            .connection_timeout(Duration::from_secs(
+                APP_CONF.redis.connection_timeout_seconds,
+            ));
 
-                        CacheStore { pool }
-                    }
-                    Err(_) => panic!("could not spawn redis pool"),
-                }
+        match builder.build(manager) {
+            Ok(pool) => {
+                info!("bound to store backend");
+
+                CacheStore { pool }
             }
-            Err(_) => panic!("could not create redis connection manager"),
+            Err(_) => panic!("could not spawn redis pool"),
         }
     }
 }
