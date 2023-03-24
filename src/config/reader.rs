@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use toml;
 
-use super::config::Config;
+use super::model::Config;
 use crate::APP_ARGS;
 
 pub struct ConfigReader;

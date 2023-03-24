@@ -41,9 +41,7 @@ use clap::{App, Arg};
 use log::LevelFilter;
 
 use cache::store::CacheStore;
-use config::config::Config;
-use config::logger::ConfigLogger;
-use config::reader::ConfigReader;
+use config::{Config, ConfigLogger, ConfigReader};
 use control::listen::ControlListen;
 use server::listen::ServerListen;
 

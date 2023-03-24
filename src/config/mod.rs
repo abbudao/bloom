@@ -6,6 +6,10 @@
 
 mod defaults;
 
-pub mod config;
-pub mod logger;
-pub mod reader;
+mod model;
+mod logger;
+mod reader;
+
+pub use model::*;
+pub use logger::*;
+pub use reader::*;
