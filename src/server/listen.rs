@@ -41,7 +41,7 @@ impl ServerListen {
         LISTEN_REMOTE
             .lock()
             .unwrap()
-            .set(Some(server.handle().remote().to_owned()));
+            .set(Some(server.handle().remote().clone()));
 
         info!("listening on http://{}", server.local_addr().unwrap());
 

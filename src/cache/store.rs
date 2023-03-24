@@ -19,10 +19,10 @@ use crate::APP_CONF;
 
 pub const BODY_COMPRESS_RATIO: u32 = 5;
 
-static KEY_BODY: &'static str = "b";
-static KEY_FINGERPRINT: &'static str = "f";
-static KEY_TAGS: &'static str = "t";
-static KEY_TAGS_SEPARATOR: &'static str = ",";
+static KEY_BODY: &str = "b";
+static KEY_FINGERPRINT: &str = "f";
+static KEY_TAGS: &str = "t";
+static KEY_TAGS_SEPARATOR: &str = ",";
 
 lazy_static! {
     pub static ref EXECUTOR_POOL: CpuPool = CpuPool::new(APP_CONF.cache.executor_pool as usize);
@@ -62,8 +62,8 @@ impl CacheStoreBuilder {
         );
 
         let addr_auth = match APP_CONF.redis.password {
-            Some(ref password) => format!(":{}@", password),
-            None => "".to_string(),
+            Some(ref password) => format!(":{password}@"),
+            None => String::new(),
         };
 
         let tcp_addr_raw = format!(
@@ -92,7 +92,7 @@ impl CacheStoreBuilder {
                     Ok(pool) => {
                         info!("bound to store backend");
 
-                        CacheStore { pool: pool }
+                        CacheStore { pool }
                     }
                     Err(_) => panic!("could not spawn redis pool"),
                 }
@@ -104,7 +104,7 @@ impl CacheStoreBuilder {
 
 impl CacheStore {
     pub fn get_meta(&self, shard: u8, key: String) -> CacheReadResultFuture {
-        let pool = self.pool.to_owned();
+        let pool = self.pool.clone();
 
         Box::new(EXECUTOR_POOL.spawn_fn(move || {
             get_cache_store_client_try!(pool, CacheStoreError::Disconnected, client {
@@ -116,11 +116,11 @@ impl CacheStore {
                                 if let Value::Data(tags_bytes_data) = tags_bytes {
                                     if let Ok(tags_data) = String::from_utf8(
                                         tags_bytes_data) {
-                                        if tags_data.is_empty() == false {
+                                        if !tags_data.is_empty() {
                                             let tags = tags_data.split(KEY_TAGS_SEPARATOR)
                                                 .map(|tag| {
                                                     format!(
-                                                        "{}:{}:{}", ROUTE_PREFIX, shard, tag
+                                                        "{ROUTE_PREFIX}:{shard}:{tag}"
                                                     )
                                                 })
                                                 .collect::<Vec<String>>();
@@ -184,7 +184,7 @@ impl CacheStore {
     }
 
     pub fn get_body(&self, key: String) -> CacheReadResultFuture {
-        let pool = self.pool.to_owned();
+        let pool = self.pool.clone();
 
         Box::new(EXECUTOR_POOL.spawn_fn(move || {
             get_cache_store_client_try!(pool, CacheStoreError::Disconnected, client {
@@ -193,7 +193,7 @@ impl CacheStore {
                         match value {
                             Value::Data(body_bytes_raw) => {
                                 let body_bytes_result =
-                                if APP_CONF.cache.compress_body == true {
+                                if APP_CONF.cache.compress_body {
                                     // Decompress raw bytes
                                     let mut decompressor = BrotliDecompressor::new(
                                         &body_bytes_raw[..], 4096
@@ -203,8 +203,8 @@ impl CacheStore {
 
                                     match decompressor.read_to_end(&mut decompress_bytes) {
                                         Ok(_) => {
-                                            if body_bytes_raw.len() > 0 &&
-                                                    decompress_bytes.len() == 0 {
+                                            if !body_bytes_raw.is_empty() &&
+                                                    decompress_bytes.is_empty() {
                                                 error!(
                                                     "decompressed store value has empty body"
                                                 );
@@ -254,7 +254,7 @@ impl CacheStore {
         ttl: usize,
         key_tags: Vec<(String, String)>,
     ) -> CacheWriteResultFuture {
-        let pool = self.pool.to_owned();
+        let pool = self.pool.clone();
 
         Box::new(EXECUTOR_POOL.spawn_fn(move || {
             Ok(get_cache_store_client_try!(
@@ -270,7 +270,7 @@ impl CacheStore {
                         Err((CacheStoreError::TooLarge, fingerprint))
                     } else {
                         // Compress value?
-                        let store_value_bytes_result = if APP_CONF.cache.compress_body == true {
+                        let store_value_bytes_result = if APP_CONF.cache.compress_body {
                             let mut compressor = BrotliCompressor::new(
                                 value.as_bytes(), 4096, BODY_COMPRESS_RATIO, 22
                             );

@@ -36,7 +36,7 @@ fn make_client() -> Client<HttpConnector> {
                 .lock()
                 .unwrap()
                 .get_mut()
-                .to_owned()
+                .clone()
                 .unwrap()
                 .handle()
                 .unwrap(),
@@ -53,9 +53,11 @@ fn map_shards() -> [Option<Uri>; MAX_SHARDS as usize] {
 
     for shard in &APP_CONF.proxy.shard {
         // Shard number overflows?
-        if shard.shard >= MAX_SHARDS {
-            panic!("shard number overflows maximum of {} shards", MAX_SHARDS);
-        }
+        assert!(
+            shard.shard < MAX_SHARDS,
+            "{}",
+            "shard number overflows maximum of {MAX_SHARDS} shards"
+        );
 
         // Store this shard
         shards[shard.shard as usize] = Some(
@@ -88,13 +90,13 @@ impl ProxyTunnel {
                     );
 
                     if let Some(query) = uri.query() {
-                        tunnel_uri.push_str("?");
+                        tunnel_uri.push('?');
                         tunnel_uri.push_str(query);
                     }
 
                     match tunnel_uri.parse() {
                         Ok(tunnel_uri) => {
-                            let mut tunnel_req = Request::new(method.to_owned(), tunnel_uri);
+                            let mut tunnel_req = Request::new(method.clone(), tunnel_uri);
 
                             // Forward headers
                             {

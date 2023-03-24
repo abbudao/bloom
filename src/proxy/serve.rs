@@ -53,7 +53,7 @@ impl ProxyServe {
 
         headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Reject));
 
-        Self::respond(&req.method(), status, headers, format!("{}", status))
+        Self::respond(req.method(), status, headers, format!("{status}"))
     }
 
     fn tunnel(req: Request) -> ProxyServeResponseFuture {
@@ -96,7 +96,7 @@ impl ProxyServe {
         headers: &Headers,
     ) -> ProxyServeResultFuture {
         // Clone inner If-None-Match header value (pass it to future)
-        let header_if_none_match = headers.get::<IfNoneMatch>().map(|value| value.to_owned());
+        let header_if_none_match = headers.get::<IfNoneMatch>().map(std::clone::Clone::clone);
         let ns_string = ns.to_string();
 
         Box::new(
@@ -113,11 +113,11 @@ impl ProxyServe {
                             let isnt_modified = match header_if_none_match {
                                 Some(ref req_if_none_match) => match req_if_none_match {
                                     &IfNoneMatch::Any => true,
-                                    &IfNoneMatch::Items(ref req_etags) => {
+                                    IfNoneMatch::Items(req_etags) => {
                                         if let Some(req_etag) = req_etags.first() {
                                             req_etag.weak_eq(&EntityTag::new(
                                                 false,
-                                                fingerprint.to_owned(),
+                                                fingerprint.clone(),
                                             ))
                                         } else {
                                             false
@@ -151,7 +151,7 @@ impl ProxyServe {
         do_acquire_body: bool,
     ) -> ProxyServeResultFuture {
         // Do not acquire body? (not modified)
-        let body_fetcher = if do_acquire_body == false {
+        let body_fetcher = if !do_acquire_body {
             Box::new(future::ok(Ok(None)))
         } else {
             // Will acquire body (modified)
@@ -162,7 +162,7 @@ impl ProxyServe {
             body_fetcher
                 .and_then(|body_result| {
                     body_result
-                        .or_else(|_| Err(()))
+                        .map_err(|_| ())
                         .map(|body| Ok((fingerprint, body)))
                 })
                 .or_else(|_| {
@@ -186,8 +186,8 @@ impl ProxyServe {
     ) -> ProxyServeResponseFuture {
         // Clone method value for closures. Sadly, it looks like Rust borrow \
         //   checker doesnt discriminate properly on this check.
-        let method_success = method.to_owned();
-        let method_failure = method.to_owned();
+        let method_success = method.clone();
+        let method_failure = method.clone();
 
         Box::new(
             ProxyTunnel::run(&method, &uri, &headers, body, shard)
@@ -200,7 +200,7 @@ impl ProxyServe {
                         method,
                         version,
                         tunnel_res.status(),
-                        tunnel_res.headers().to_owned(),
+                        tunnel_res.headers().clone(),
                         tunnel_res.body(),
                     )
                 })
@@ -260,7 +260,7 @@ impl ProxyServe {
             let mut is_last_line_empty = false;
 
             for res_line in res_string_value.lines() {
-                if res_body_string.is_empty() == false || is_last_line_empty == true {
+                if !res_body_string.is_empty() || is_last_line_empty {
                     // Write to body
                     res_body_string.push_str(res_line.as_ref());
                     res_body_string.push_str(LINE_FEED);
@@ -320,7 +320,7 @@ impl ProxyServe {
             headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
 
             // Serve non-modified response
-            Self::respond(&method, StatusCode::NotModified, headers, String::from(""))
+            Self::respond(&method, StatusCode::NotModified, headers, String::new())
         }
     }
 
@@ -349,7 +349,7 @@ impl ProxyServe {
 
         headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Offline));
 
-        Self::respond(method, status, headers, format!("{}", status))
+        Self::respond(method, status, headers, format!("{status}"))
     }
 
     fn fingerprint_etag(fingerprint: String) -> ETag {

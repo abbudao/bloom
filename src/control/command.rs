@@ -47,7 +47,7 @@ impl ControlCommand {
     ) -> ControlResult {
         let bucket = parts.next().unwrap_or("");
 
-        if bucket.is_empty() == false {
+        if !bucket.is_empty() {
             let (bucket_key, _) = CacheRoute::gen_key_bucket_from_hash(*shard, bucket);
 
             return Self::proceed_flush(CachePurgeVariant::Bucket, shard, &bucket_key);
@@ -59,7 +59,7 @@ impl ControlCommand {
     pub fn dispatch_flush_auth(shard: &ControlShard, mut parts: SplitWhitespace) -> ControlResult {
         let auth = parts.next().unwrap_or("");
 
-        if auth.is_empty() == false {
+        if !auth.is_empty() {
             let (auth_key, _) = CacheRoute::gen_key_auth_from_hash(*shard, auth);
 
             return Self::proceed_flush(CachePurgeVariant::Auth, shard, &auth_key);

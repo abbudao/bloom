@@ -45,7 +45,7 @@ const HASH_RESULT_SIZE: usize = 7 + ROUTE_HASH_SIZE + LINE_END_GAP + 1;
 const SHARD_INITIAL: ControlShard = 0;
 const TCP_TIMEOUT_NON_ESTABLISHED: u64 = 20;
 
-static BUFFER_LINE_SEPARATOR: u8 = '\n' as u8;
+static BUFFER_LINE_SEPARATOR: u8 = b'\n';
 
 pub type ControlShard = u8;
 
@@ -86,7 +86,7 @@ impl ControlHandle {
                 ControlHandle::configure_stream(&stream, true);
 
                 // Send started acknowledgement
-                write!(stream, "STARTED{}", LINE_FEED).expect("write failed");
+                write!(stream, "STARTED{LINE_FEED}").expect("write failed");
 
                 // Select initial shard
                 let mut shard = SHARD_INITIAL;
@@ -116,13 +116,12 @@ impl ControlHandle {
                                         buffer.split(|value| value == &BUFFER_LINE_SEPARATOR);
 
                                     for line in buffer_split {
-                                        if line.is_empty() == false {
-                                            if Self::on_message(&mut shard, &stream, line)
+                                        if !line.is_empty()
+                                            && Self::on_message(&mut shard, &stream, line)
                                                 == ControlHandleMessageResult::Close
-                                            {
-                                                // Should close?
-                                                break 'handler;
-                                            }
+                                        {
+                                            // Should close?
+                                            break 'handler;
                                         }
                                     }
                                 }
@@ -146,7 +145,7 @@ impl ControlHandle {
     }
 
     fn configure_stream(stream: &TcpStream, is_established: bool) {
-        let tcp_timeout = if is_established == true {
+        let tcp_timeout = if is_established {
             APP_CONF.control.tcp_timeout
         } else {
             TCP_TIMEOUT_NON_ESTABLISHED
@@ -169,7 +168,7 @@ impl ControlHandle {
             .collect();
         let test_hash = CacheRoute::hash(test_value.as_str());
 
-        write!(stream, "HASHREQ {}{}", test_value, LINE_FEED).expect("write failed");
+        write!(stream, "HASHREQ {test_value}{LINE_FEED}").expect("write failed");
 
         debug!(
             "sent hasher request: {} and expecting hash: {}",
@@ -196,7 +195,7 @@ impl ControlHandle {
                         );
 
                         // Validate hash
-                        if res_hash.is_empty() == false && res_hash == test_hash {
+                        if !res_hash.is_empty() && res_hash == test_hash {
                             return Ok(None);
                         }
 
@@ -230,7 +229,7 @@ impl ControlHandle {
 
         let mut result = ControlHandleMessageResult::Continue;
 
-        let response = match Self::handle_message(shard, &message) {
+        let response = match Self::handle_message(shard, message) {
             Ok(resp) => match resp {
                 ControlCommandResponse::Ok
                 | ControlCommandResponse::Pong
@@ -247,13 +246,13 @@ impl ControlHandle {
             _ => ControlCommandResponse::Err.to_str(),
         };
 
-        if response.is_empty() == false {
-            write!(stream, "{}{}", response, LINE_FEED).expect("write failed");
+        if !response.is_empty() {
+            write!(stream, "{response}{LINE_FEED}").expect("write failed");
 
             debug!("wrote response: {}", response);
         }
 
-        return result;
+        result
     }
 
     fn handle_message(
