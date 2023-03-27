@@ -25,12 +25,11 @@ thread_local! {
 
 pub struct ProxyTunnel;
 
-pub type ProxyTunnelFuture = dyn Future<Output = Response<Vec<u8>>>;
+pub type ProxyTunnelFuture = Box<dyn Future<Output = Response<Vec<u8>>>>;
 
 fn make_client() -> Client<HttpConnector> {
-    Client::configure()
-        .keep_alive(true)
-        .keep_alive_timeout(Some(Duration::from_secs(CLIENT_KEEP_ALIVE_TIMEOUT_SECONDS)))
+    Client::builder()
+        .pool_idle_timeout(Some(Duration::from_secs(CLIENT_KEEP_ALIVE_TIMEOUT_SECONDS)))
         .build(
             &LISTEN_REMOTE
                 .lock()
@@ -71,7 +70,7 @@ fn map_shards() -> [Option<Uri>; MAX_SHARDS as usize] {
 }
 
 impl ProxyTunnel {
-    pub fn run(
+    pub async fn run(
         method: &Method,
         uri: &Uri,
         headers: &HeaderMap,
@@ -114,7 +113,8 @@ impl ProxyTunnel {
                                 _ => {}
                             }
 
-                            TUNNEL_CLIENT.with(|client| Box::new(client.request(tunnel_req)))
+                            TUNNEL_CLIENT
+                                .with(|client| Box::new(client.request(tunnel_req).into().await))
                         }
                         Err(err) => Box::new(future::err(Error::Uri(err))),
                     }

@@ -12,7 +12,7 @@ pub struct HeaderResponseBloomResponseTTL(pub usize);
 
 impl Header for HeaderResponseBloomResponseTTL {
     fn name() -> &'static HeaderName {
-        "Bloom-Response-TTL"
+        &HeaderName::from_static("Bloom-Response-TTL")
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>

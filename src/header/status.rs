@@ -34,7 +34,7 @@ impl HeaderBloomStatusValue {
 
 impl Header for HeaderBloomStatus {
     fn name() -> &'static HeaderName {
-        "Bloom-Status"
+        &HeaderName::from_static("Bloom-Status")
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>

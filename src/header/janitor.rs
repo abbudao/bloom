@@ -20,14 +20,14 @@ impl HeaderJanitor {
 
         for (name, value) in headers.iter() {
             // Do not forward contextual and internal headers (ie. 'Bloom-Response-*' headers)
-            if Self::is_contextual(&name) || Self::is_internal(&name) {
+            if Self::is_contextual(&name.to_string()) || Self::is_internal(&name.to_string()) {
                 headers_remove.push(name.to_string());
             }
         }
 
         // Proceed headers clean-up
         for header_remove in &headers_remove {
-            headers.remove_raw(header_remove.as_ref());
+            headers.remove::<&str>(header_remove.as_ref());
         }
     }
 
@@ -38,7 +38,7 @@ impl HeaderJanitor {
             || header_name == headers::Date::name()
     }
 
-    pub fn is_interal(header_name: &str) -> bool {
+    pub fn is_internal(header_name: &str) -> bool {
         header_name == HeaderResponseBloomResponseBuckets::name()
             || header_name == HeaderResponseBloomResponseIgnore::name()
             || header_name == HeaderResponseBloomResponseTTL::name()

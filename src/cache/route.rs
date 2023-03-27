@@ -48,12 +48,12 @@ impl CacheRoute {
         origin: Option<&Origin>,
     ) -> (String, String) {
         let bucket_raw = format!(
-            "[{}|{}|{}|{}|{}]",
+            "[{:?}|{}|{}|{}|{}]",
             version,
             method,
             path,
             query.unwrap_or(""),
-            origin.unwrap_or(&Origin::null()),
+            origin.unwrap_or(&Origin::NULL),
         );
 
         let route_hash = Self::hash(&bucket_raw);

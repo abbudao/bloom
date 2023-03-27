@@ -3,13 +3,14 @@
 // HTTP REST API caching middleware
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
-
+use futures::TryFutureExt;
 use futures::future::{self, Future};
-use headers::{ETag, IfNoneMatch, Origin};
+use headers::{ETag, HeaderValue, IfNoneMatch, Origin};
 use httparse;
 use hyper::{http, Body, Error, HeaderMap, Method, StatusCode, Uri};
 use hyper::{Request, Response};
 
+use headers::HeaderMapExt;
 use super::header::ProxyHeader;
 use super::tunnel::ProxyTunnel;
 use crate::cache::read::CacheRead;
@@ -25,31 +26,31 @@ const CACHED_PARSE_MAX_HEADERS: usize = 100;
 
 type ProxyServeResult = Result<(String, Option<String>), ()>;
 
-type ProxyServeResultFuture = dyn Future<Output = Response<Vec<u8>>>;
+type ProxyServeResultFuture = Box<dyn Future<Output = Response<Body>>>;
 
-pub type ProxyServeResponseFuture = dyn Future<Output = Response<Vec<u8>>>;
+pub type ProxyServeResponseFuture = Box<dyn Future<Output = Result<Response<Body>, hyper::Error>>>;
 
 impl ProxyServe {
-    pub fn handle(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
+    pub fn handle(req: Request<Body>) -> ProxyServeResponseFuture {
         info!("handled request: {} on {}", req.method(), req.path());
 
         match *req.method() {
-            Method::Options
-            | Method::Head
-            | Method::Get
-            | Method::Post
-            | Method::Patch
-            | Method::Put
-            | Method::Delete => Self::accept(req),
-            _ => Self::reject(req, StatusCode::MethodNotAllowed),
+            Method::OPTIONS
+            | Method::HEAD
+            | Method::GET
+            | Method::POST
+            | Method::PATCH
+            | Method::PUT
+            | Method::DELETE => Self::accept(req),
+            _ => Self::reject(req, StatusCode::METHOD_NOT_ALLOWED),
         }
     }
 
-    fn accept(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
+    fn accept(req: Request<Body>) -> ProxyServeResponseFuture {
         Self::tunnel(req)
     }
 
-    fn reject(req: Request<Vec<u8>>, status: StatusCode) -> ProxyServeResponseFuture {
+    fn reject(req: Request<Body>, status: StatusCode) -> ProxyServeResponseFuture {
         let mut headers = HeaderMap::new();
 
         headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Reject));
@@ -57,7 +58,7 @@ impl ProxyServe {
         Self::respond(req.method(), status, headers, format!("{status}"))
     }
 
-    fn tunnel(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
+    fn tunnel(req: Request<Body>) -> ProxyServeResponseFuture {
         let (method, uri, version, headers, body) = req.deconstruct();
         let (headers, auth, shard) = ProxyHeader::parse_from_request(headers);
 
@@ -70,7 +71,7 @@ impl ProxyServe {
             &method,
             uri.path(),
             uri.query(),
-            headers.get::<Origin>(),
+            headers.typed_get::<Origin>(),
         );
 
         info!("tunneling for ns = {}", ns);
@@ -90,7 +91,7 @@ impl ProxyServe {
         )
     }
 
-    fn fetch_cached_data(
+    async fn fetch_cached_data(
         shard: u8,
         ns: &str,
         method: &Method,
@@ -101,7 +102,7 @@ impl ProxyServe {
         let ns_string = ns.to_string();
 
         Box::new(
-            CacheRead::acquire_meta(shard, ns, method)
+            CacheRead::acquire_meta(shard, ns, method).await
                 .and_then(move |result| {
                     match result {
                         Ok(fingerprint) => {
@@ -271,7 +272,7 @@ impl ProxyServe {
                     // Process cached status
                     let code = res.code.unwrap_or(500u16);
                     let status =
-                        StatusCode::try_from(code).unwrap_or(StatusCode::Unregistered(code));
+                        StatusCode::try_from(code).unwrap_or(StatusCode::(code));
 
                     // Process cached headers
                     let mut headers = HeaderMap::new();
@@ -281,14 +282,15 @@ impl ProxyServe {
                             String::from_utf8(Vec::from(header.name)),
                             String::from_utf8(Vec::from(header.value)),
                         ) {
-                            headers.set_raw(header_name, header_value);
+                          // fix me
+                          let str_value = HeaderValue::from_str(&header_value).unwrap();
+                            headers.insert(header_name.into(), str_value);
                         }
                     }
 
                     ProxyHeader::set_etag(&mut headers, Self::fingerprint_etag(res_fingerprint));
 
-                    headers
-                        .set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
+                    headers.typed_insert(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
 
                     // Serve cached response
                     Self::respond(&method, status, headers, res_body_string)
@@ -314,10 +316,10 @@ impl ProxyServe {
             let mut headers = HeaderMap::new();
 
             ProxyHeader::set_etag(&mut headers, Self::fingerprint_etag(res_fingerprint));
-            headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
+            headers.typed_insert(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
 
             // Serve non-modified response
-            Self::respond(&method, StatusCode::NotModified, headers, String::new())
+            Self::respond(&method, StatusCode::NOT_MODIFIED, headers, String::new())
         }
     }
 
@@ -334,23 +336,23 @@ impl ProxyServe {
             ProxyHeader::set_etag(&mut headers, Self::fingerprint_etag(fingerprint_value));
         }
 
-        headers.set(HeaderBloomStatus(bloom_status));
+        headers.typed_insert(HeaderBloomStatus(bloom_status));
 
         Self::respond(method, status, headers, body_string)
     }
 
     fn dispatch_failure(method: &Method) -> ProxyServeResponseFuture {
-        let status = StatusCode::BadGateway;
+        let status = StatusCode::BAD_GATEWAY;
 
         let mut headers = HeaderMap::new();
 
-        headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Offline));
+        headers.typed_insert(HeaderBloomStatus(HeaderBloomStatusValue::Offline));
 
         Self::respond(method, status, headers, format!("{status}"))
     }
 
     fn fingerprint_etag(fingerprint: String) -> ETag {
-        ETag::new(false, fingerprint)
+        fingerprint.parse::<headers::ETag>().unwrap()
     }
 
     fn respond(
@@ -360,13 +362,20 @@ impl ProxyServe {
         body_string: String,
     ) -> ProxyServeResponseFuture {
         Box::new(future::ok(match method {
-            &Method::Get | &Method::Post | &Method::Patch | &Method::Put | &Method::Delete => {
-                Response::new()
-                    .with_status(status)
-                    .with_headers(headers)
-                    .with_body(body_string)
+            &Method::GET | &Method::POST | &Method::PATCH | &Method::PUT | &Method::DELETE => {
+                let builder = Response::builder().status(status);
+                let mut builder_headers = builder.headers_mut();
+                builder_headers = Some(&mut headers);
+                // Fix me
+                builder.body(Body::from(body_string)).unwrap()
             }
-            _ => Response::new().with_status(status).with_headers(headers),
+            _ => {
+                let builder = Response::builder().status(status);
+                let mut builder_headers = builder.headers_mut();
+                builder_headers = Some(&mut headers);
+                // Fix me
+                builder.body(Body::empty()).unwrap()
+            }
         }))
     }
 }

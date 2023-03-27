@@ -12,7 +12,7 @@ pub struct HeaderResponseBloomResponseIgnore();
 
 impl Header for HeaderResponseBloomResponseIgnore {
     fn name() -> &'static HeaderName {
-        "Bloom-Response-Ignore"
+        &HeaderName::from_static("Bloom-Response-Ignore")
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>

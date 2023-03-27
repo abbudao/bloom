@@ -12,7 +12,7 @@ pub struct HeaderResponseBloomResponseBuckets(pub Vec<String>);
 
 impl Header for HeaderResponseBloomResponseBuckets {
     fn name() -> &'static HeaderName {
-        "Bloom-Response-Buckets"
+        &HeaderName::from_static("Bloom-Response-Buckets")
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>
@@ -38,12 +38,13 @@ impl Header for HeaderResponseBloomResponseBuckets {
     where
         E: Extend<HeaderValue>,
     {
-        values.extend(self.0);
+        values.extend(self.0.join(","));
     }
 }
 
 impl fmt::Display for HeaderResponseBloomResponseBuckets {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.decode()
+      f(self.0.join(","))?;
+      Ok(())
     }
 }

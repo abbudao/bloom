@@ -21,10 +21,10 @@ pub enum CacheReadError {
 }
 
 type CacheReadResult = Result<String, CacheReadError>;
-type CacheReadResultFuture = Box<dyn Future<Item = CacheReadResult, Error = ()>>;
+type CacheReadResultFuture = Box<dyn Future<Output = CacheReadResult>>;
 
 type CacheReadOptionalResult = Result<Option<String>, CacheReadError>;
-type CacheReadOptionalResultFuture = Box<dyn Future<Item = CacheReadOptionalResult, Error = ()>>;
+type CacheReadOptionalResultFuture = Box<dyn Future<Output = CacheReadOptionalResult>>;
 
 impl CacheRead {
     pub fn acquire_meta(shard: u8, key: &str, method: &Method) -> CacheReadResultFuture {
@@ -46,7 +46,7 @@ impl CacheRead {
                     .or_else(|err| {
                         error!("could not acquire meta value from cache because: {:?}", err);
 
-                        future::ok(Err(CacheReadError::StoreFailure))
+                        Box::new(future::ok(Err(CacheReadError::StoreFailure)))
                     }),
             )
         } else {

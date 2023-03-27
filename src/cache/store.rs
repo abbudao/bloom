@@ -86,8 +86,7 @@ impl CacheStore {
             .connection_timeout(Duration::from_secs(
                 APP_CONF.redis.connection_timeout_seconds,
             ));
-
-        match builder.build(manager) {
+match builder.build(manager) {
             Ok(pool) => {
                 info!("bound to store backend");
 
