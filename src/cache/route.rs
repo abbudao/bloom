@@ -5,8 +5,9 @@
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
 use farmhash;
-use hyper::header::Origin;
-use hyper::{HttpVersion, Method};
+use headers::Origin;
+use hyper::http;
+use hyper::Method;
 
 pub struct CacheRoute;
 
@@ -40,7 +41,7 @@ impl CacheRoute {
     pub fn gen_key_cache(
         shard: u8,
         auth_hash: &str,
-        version: HttpVersion,
+        version: http::Version,
         method: &Method,
         path: &str,
         query: Option<&str>,
@@ -79,7 +80,7 @@ mod tests {
             CacheRoute::gen_key_cache(
                 0,
                 "dc56d17a",
-                HttpVersion::Http11,
+                http::Version::Http11,
                 &Method::Get,
                 "/",
                 Some(""),
@@ -95,7 +96,7 @@ mod tests {
             CacheRoute::gen_key_cache(
                 0,
                 "dc56d17a",
-                HttpVersion::Http11,
+                http::Version::Http11,
                 &Method::Post,
                 "/login",
                 Some(""),
@@ -111,7 +112,7 @@ mod tests {
             CacheRoute::gen_key_cache(
                 7,
                 "6d0f1448",
-                HttpVersion::Http11,
+                http::Version::Http11,
                 &Method::Options,
                 "/feed",
                 Some(""),
@@ -127,7 +128,7 @@ mod tests {
             CacheRoute::gen_key_cache(
                 80,
                 "d73f0f31",
-                HttpVersion::H2,
+                http::Version::H2,
                 &Method::Head,
                 "/user",
                 Some("u=1"),

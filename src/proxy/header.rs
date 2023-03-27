@@ -4,8 +4,8 @@
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
-use hyper::header::{ETag, Header, Vary};
-use hyper::Headers;
+use headers::{ETag, Vary};
+use hyper::HeaderMap;
 use std::str::from_utf8;
 use unicase::Ascii;
 
@@ -15,7 +15,7 @@ use crate::{header::request_shard::HeaderRequestBloomRequestShard, APP_CONF};
 pub struct ProxyHeader;
 
 impl ProxyHeader {
-    pub fn parse_from_request(headers: Headers) -> (Headers, String, u8) {
+    pub fn parse_from_request(headers: HeaderMap) -> (HeaderMap, String, u8) {
         // Request header: 'Authorization'
         let auth = match headers.get_raw("authorization") {
             None => defaults::REQUEST_AUTHORIZATION_DEFAULT,
@@ -33,7 +33,7 @@ impl ProxyHeader {
         (headers, auth, shard)
     }
 
-    pub fn set_etag(headers: &mut Headers, etag: ETag) {
+    pub fn set_etag(headers: &mut HeaderMap, etag: ETag) {
         headers.set::<Vary>(Vary::Items(vec![Ascii::new(
             ETag::header_name().to_string(),
         )]));

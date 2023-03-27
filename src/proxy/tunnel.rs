@@ -5,8 +5,8 @@
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
 use futures::{future, Future};
-use hyper::client::{HttpConnector, Response};
-use hyper::{Body, Client, Error, Headers, Method, Request, Uri};
+use hyper::client::HttpConnector;
+use hyper::{Body, Client, Error, HeaderMap, Method, Request, Response, Uri};
 use std::time::Duration;
 
 use crate::server::listen::LISTEN_REMOTE;
@@ -25,7 +25,7 @@ thread_local! {
 
 pub struct ProxyTunnel;
 
-pub type ProxyTunnelFuture = Box<dyn Future<Item = Response, Error = Error>>;
+pub type ProxyTunnelFuture = dyn Future<Output = Response<Vec<u8>>>;
 
 fn make_client() -> Client<HttpConnector> {
     Client::configure()
@@ -74,7 +74,7 @@ impl ProxyTunnel {
     pub fn run(
         method: &Method,
         uri: &Uri,
-        headers: &Headers,
+        headers: &HeaderMap,
         body: Body,
         shard: u8,
     ) -> ProxyTunnelFuture {
@@ -96,21 +96,20 @@ impl ProxyTunnel {
 
                     match tunnel_uri.parse() {
                         Ok(tunnel_uri) => {
-                            let mut tunnel_req = Request::new(method.clone(), tunnel_uri);
+                            let mut tunnel_req =
+                                Request::builder().uri(tunnel_uri).method(method.clone());
 
                             // Forward headers
-                            {
-                                let tunnel_headers = tunnel_req.headers_mut();
+                            let tunnel_headers = tunnel_req.headers_mut();
 
-                                tunnel_headers.clone_from(headers);
-                            }
+                            tunnel_headers = headers.clone();
 
                             // Forward body?
                             // Notice: HTTP DELETE is not forbidden per-spec to hold a request \
                             //   body, even if it is not commonly used. Hence why we forward it.
                             match method {
                                 &Method::Post | &Method::Patch | &Method::Put | &Method::Delete => {
-                                    tunnel_req.set_body(body);
+                                    tunnel_req.body(body);
                                 }
                                 _ => {}
                             }

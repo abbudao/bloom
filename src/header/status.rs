@@ -4,8 +4,7 @@
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
-use hyper::header::{Formatter, Header, Raw};
-use hyper::{Error, Result};
+use headers::{Header, HeaderName, HeaderValue};
 use std::fmt;
 use std::str;
 
@@ -34,26 +33,34 @@ impl HeaderBloomStatusValue {
 }
 
 impl Header for HeaderBloomStatus {
-    fn header_name() -> &'static str {
+    fn name() -> &'static HeaderName {
         "Bloom-Status"
     }
 
-    fn parse_header(raw: &Raw) -> Result<HeaderBloomStatus> {
-        match raw.one() {
-            Some(header_raw) => match str::from_utf8(header_raw) {
+    fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>
+    where
+        I: Iterator<Item = &'i HeaderValue>,
+    {
+        let value = values.next().ok_or_else(headers::Error::invalid)?;
+        match value {
+            Some(Ok(header_raw)) => match str::from_utf8(header_raw) {
                 Ok("HIT") => Ok(HeaderBloomStatus(HeaderBloomStatusValue::Hit)),
                 Ok("MISS") => Ok(HeaderBloomStatus(HeaderBloomStatusValue::Miss)),
                 Ok("DIRECT") => Ok(HeaderBloomStatus(HeaderBloomStatusValue::Direct)),
                 Ok("REJECT") => Ok(HeaderBloomStatus(HeaderBloomStatusValue::Reject)),
                 Ok("OFFLINE") => Ok(HeaderBloomStatus(HeaderBloomStatusValue::Offline)),
-                _ => Err(Error::Header),
+                _ => Err(headers::Error::invalid()),
             },
-            _ => Err(Error::Header),
+            _ => Err(headers::Error::invalid()),
         }
     }
 
-    fn fmt_header(&self, f: &mut Formatter) -> fmt::Result {
-        f.fmt_line(self)
+    fn encode<E>(&self, values: &mut E)
+    where
+        E: Extend<HeaderValue>,
+    {
+        let value = HeaderValue::from_static(self.0);
+        values.extend(std::iter::once(value));
     }
 }
 

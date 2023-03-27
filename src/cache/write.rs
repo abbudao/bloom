@@ -6,7 +6,9 @@
 
 use farmhash;
 use futures::{future, Future, Stream};
-use hyper::{Body, Error, Headers, HttpVersion, Method, StatusCode};
+use hyper::http;
+use hyper::http::HeaderMap;
+use hyper::{Body, Error, Method, StatusCode};
 
 use super::check::CacheCheck;
 use super::route::CacheRoute;
@@ -22,10 +24,10 @@ pub struct CacheWriteResult {
     pub body: Result<String, Option<String>>,
     pub fingerprint: Option<String>,
     pub status: StatusCode,
-    pub headers: Headers,
+    pub headers: HeaderMap,
 }
 
-pub type CacheWriteResultFuture = Box<dyn Future<Item = CacheWriteResult, Error = Error>>;
+pub type CacheWriteResultFuture = Box<dyn Future<Output = CacheWriteResult>>;
 
 impl CacheWrite {
     pub fn save(
@@ -34,9 +36,9 @@ impl CacheWrite {
         auth_hash: String,
         shard: u8,
         method: Method,
-        version: HttpVersion,
+        version: http::Version,
         status: StatusCode,
-        mut headers: Headers,
+        mut headers: HeaderMap,
         body: Body,
     ) -> CacheWriteResultFuture {
         Box::new(
@@ -137,11 +139,11 @@ impl CacheWrite {
         )
     }
 
-    fn generate_chain_banner(version: &HttpVersion, status: &StatusCode) -> String {
+    fn generate_chain_banner(version: &http::Version, status: &StatusCode) -> String {
         format!("{version} {status}")
     }
 
-    fn generate_chain_headers(headers: &Headers) -> String {
+    fn generate_chain_headers(headers: &HeaderMap) -> String {
         headers
             .iter()
             .filter(|header_view| !HeaderJanitor::is_contextual(header_view))
@@ -156,7 +158,7 @@ impl CacheWrite {
     fn result_cache_write_error(
         body: Option<String>,
         status: StatusCode,
-        headers: Headers,
+        headers: HeaderMap,
     ) -> CacheWriteResultFuture {
         Box::new(future::ok(CacheWriteResult {
             body: Err(body),
@@ -180,9 +182,9 @@ mod tests {
             "90d52bc6".to_string(),
             0,
             Method::Get,
-            HttpVersion::Http11,
+            http::Version::Http11,
             StatusCode::Ok,
-            Headers::new(),
+            HeaderMap::new(),
             Body::empty(),
         )
         .poll()

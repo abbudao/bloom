@@ -5,10 +5,10 @@
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
 use futures::future::{self, Future};
+use headers::{ETag, IfNoneMatch, Origin};
 use httparse;
-use hyper::header::{ETag, EntityTag, IfNoneMatch, Origin};
-use hyper::server::{Request, Response};
-use hyper::{Body, Error, Headers, HttpVersion, Method, StatusCode, Uri};
+use hyper::{http, Body, Error, HeaderMap, Method, StatusCode, Uri};
+use hyper::{Request, Response};
 
 use super::header::ProxyHeader;
 use super::tunnel::ProxyTunnel;
@@ -24,12 +24,13 @@ pub struct ProxyServe;
 const CACHED_PARSE_MAX_HEADERS: usize = 100;
 
 type ProxyServeResult = Result<(String, Option<String>), ()>;
-type ProxyServeResultFuture = Box<dyn Future<Item = ProxyServeResult, Error = ()>>;
 
-pub type ProxyServeResponseFuture = Box<dyn Future<Item = Response, Error = Error>>;
+type ProxyServeResultFuture = dyn Future<Output = Response<Vec<u8>>>;
+
+pub type ProxyServeResponseFuture = dyn Future<Output = Response<Vec<u8>>>;
 
 impl ProxyServe {
-    pub fn handle(req: Request) -> ProxyServeResponseFuture {
+    pub fn handle(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
         info!("handled request: {} on {}", req.method(), req.path());
 
         match *req.method() {
@@ -44,19 +45,19 @@ impl ProxyServe {
         }
     }
 
-    fn accept(req: Request) -> ProxyServeResponseFuture {
+    fn accept(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
         Self::tunnel(req)
     }
 
-    fn reject(req: Request, status: StatusCode) -> ProxyServeResponseFuture {
-        let mut headers = Headers::new();
+    fn reject(req: Request<Vec<u8>>, status: StatusCode) -> ProxyServeResponseFuture {
+        let mut headers = HeaderMap::new();
 
         headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Reject));
 
         Self::respond(req.method(), status, headers, format!("{status}"))
     }
 
-    fn tunnel(req: Request) -> ProxyServeResponseFuture {
+    fn tunnel(req: Request<Vec<u8>>) -> ProxyServeResponseFuture {
         let (method, uri, version, headers, body) = req.deconstruct();
         let (headers, auth, shard) = ProxyHeader::parse_from_request(headers);
 
@@ -93,7 +94,7 @@ impl ProxyServe {
         shard: u8,
         ns: &str,
         method: &Method,
-        headers: &Headers,
+        headers: &HeaderMap,
     ) -> ProxyServeResultFuture {
         // Clone inner If-None-Match header value (pass it to future)
         let header_if_none_match = headers.get::<IfNoneMatch>().map(std::clone::Clone::clone);
@@ -115,10 +116,7 @@ impl ProxyServe {
                                     &IfNoneMatch::Any => true,
                                     IfNoneMatch::Items(req_etags) => {
                                         if let Some(req_etag) = req_etags.first() {
-                                            req_etag.weak_eq(&EntityTag::new(
-                                                false,
-                                                fingerprint.clone(),
-                                            ))
+                                            req_etag.weak_eq(&ETag::new(false, fingerprint.clone()))
                                         } else {
                                             false
                                         }
@@ -179,8 +177,8 @@ impl ProxyServe {
         auth_hash: String,
         method: Method,
         uri: &Uri,
-        version: HttpVersion,
-        headers: &Headers,
+        version: http::Version,
+        headers: &HeaderMap,
         body: Body,
     ) -> ProxyServeResponseFuture {
         // Clone method value for closures. Sadly, it looks like Rust borrow \
@@ -243,8 +241,8 @@ impl ProxyServe {
         auth_hash: String,
         method: Method,
         req_uri: &Uri,
-        req_version: HttpVersion,
-        req_headers: &Headers,
+        req_version: http::Version,
+        req_headers: &HeaderMap,
         req_body: Body,
         res_fingerprint: String,
         res_string: Option<String>,
@@ -276,7 +274,7 @@ impl ProxyServe {
                         StatusCode::try_from(code).unwrap_or(StatusCode::Unregistered(code));
 
                     // Process cached headers
-                    let mut headers = Headers::new();
+                    let mut headers = HeaderMap::new();
 
                     for header in res.headers {
                         if let (Ok(header_name), Ok(header_value)) = (
@@ -313,7 +311,7 @@ impl ProxyServe {
             }
         } else {
             // Response not modified for client, process non-modified + cached headers
-            let mut headers = Headers::new();
+            let mut headers = HeaderMap::new();
 
             ProxyHeader::set_etag(&mut headers, Self::fingerprint_etag(res_fingerprint));
             headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
@@ -326,7 +324,7 @@ impl ProxyServe {
     fn dispatch_fetched(
         method: &Method,
         status: StatusCode,
-        mut headers: Headers,
+        mut headers: HeaderMap,
         bloom_status: HeaderBloomStatusValue,
         body_string: String,
         fingerprint: Option<String>,
@@ -344,7 +342,7 @@ impl ProxyServe {
     fn dispatch_failure(method: &Method) -> ProxyServeResponseFuture {
         let status = StatusCode::BadGateway;
 
-        let mut headers = Headers::new();
+        let mut headers = HeaderMap::new();
 
         headers.set::<HeaderBloomStatus>(HeaderBloomStatus(HeaderBloomStatusValue::Offline));
 
@@ -352,13 +350,13 @@ impl ProxyServe {
     }
 
     fn fingerprint_etag(fingerprint: String) -> ETag {
-        ETag(EntityTag::new(false, fingerprint))
+        ETag::new(false, fingerprint)
     }
 
     fn respond(
         method: &Method,
         status: StatusCode,
-        headers: Headers,
+        headers: HeaderMap,
         body_string: String,
     ) -> ProxyServeResponseFuture {
         Box::new(future::ok(match method {

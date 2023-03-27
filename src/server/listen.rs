@@ -4,7 +4,7 @@
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
-use hyper::server::Http;
+use hyper::server::conn::Http;
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
 use tokio_core::reactor::Remote;

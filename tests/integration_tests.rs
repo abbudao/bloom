@@ -14,9 +14,10 @@ mod integration {
         // Construct the Composition to be added to the test.
         // A Composition is an Image configured with environment, arguments, StartPolicy, etc.,
         // seen as an instance of the Image prior to constructing the Container.
-        let hello = Composition::with_image(
-            Image::with_repository("redis").tag("7")
-        ).with_container_name("redis").publish_all_ports().to_owned();
+        let hello = Composition::with_image(Image::with_repository("redis").tag("7"))
+            .with_container_name("redis")
+            .publish_all_ports()
+            .to_owned();
 
         // Populate the test instance.
         // The order of compositions added reflect the execution order (depending on StartPolicy).
@@ -35,6 +36,6 @@ mod integration {
 
         let redis_ran = has_ran.lock().unwrap();
 
-assert!(*redis_ran);
+        assert!(*redis_ran);
     }
 }

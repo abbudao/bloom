@@ -3,25 +3,33 @@
 // HTTP REST API caching middleware
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
-
-use hyper::header::{parsing, Formatter, Header, Raw};
-use hyper::Result;
+extern crate headers;
+use headers::{Header, HeaderName, HeaderValue};
 use std::fmt;
 
 #[derive(Clone)]
 pub struct HeaderRequestBloomRequestShard(pub u8);
 
 impl Header for HeaderRequestBloomRequestShard {
-    fn header_name() -> &'static str {
+    fn name() -> &'static HeaderName {
         "Bloom-Request-Shard"
     }
 
-    fn parse_header(raw: &Raw) -> Result<HeaderRequestBloomRequestShard> {
-        parsing::from_one_raw_str(raw).map(HeaderRequestBloomRequestShard)
+    fn decode<'i, I>(values: &mut I) -> Result<Self, headers::Error>
+    where
+        I: Iterator<Item = &'i HeaderValue>,
+    {
+        let value = values.next().ok_or_else(headers::Error::invalid)?;
+
+        u8::from_str(value).map_err(|| headers::Error::invalid())
     }
 
-    fn fmt_header(&self, f: &mut Formatter) -> fmt::Result {
-        f.fmt_line(self)
+    fn encode<E>(&self, values: &mut E)
+    where
+        E: Extend<HeaderValue>,
+    {
+        let value = HeaderValue::from_static(self.0);
+        values.extend(std::iter::once(value));
     }
 }
 
