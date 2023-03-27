@@ -44,7 +44,7 @@ impl Header for HeaderResponseBloomResponseBuckets {
 
 impl fmt::Display for HeaderResponseBloomResponseBuckets {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-      f(self.0.join(","))?;
-      Ok(())
+        f(self.0.join(","))?;
+        Ok(())
     }
 }

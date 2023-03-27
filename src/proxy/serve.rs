@@ -1,16 +1,17 @@
+use std::str::FromStr;
+
 // Bloom
 //
 // HTTP REST API caching middleware
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
-use futures::TryFutureExt;
 use futures::future::{self, Future};
-use headers::{ETag, HeaderValue, IfNoneMatch, Origin};
+use futures::TryFutureExt;
+use headers::{ETag, HeaderName, HeaderValue, IfNoneMatch, Origin};
 use httparse;
 use hyper::{http, Body, Error, HeaderMap, Method, StatusCode, Uri};
 use hyper::{Request, Response};
 
-use headers::HeaderMapExt;
 use super::header::ProxyHeader;
 use super::tunnel::ProxyTunnel;
 use crate::cache::read::CacheRead;
@@ -19,6 +20,7 @@ use crate::cache::write::CacheWrite;
 use crate::header::janitor::HeaderJanitor;
 use crate::header::status::{HeaderBloomStatus, HeaderBloomStatusValue};
 use crate::LINE_FEED;
+use headers::HeaderMapExt;
 
 pub struct ProxyServe;
 
@@ -102,7 +104,8 @@ impl ProxyServe {
         let ns_string = ns.to_string();
 
         Box::new(
-            CacheRead::acquire_meta(shard, ns, method).await
+            CacheRead::acquire_meta(shard, ns, method)
+                .await
                 .and_then(move |result| {
                     match result {
                         Ok(fingerprint) => {
@@ -271,8 +274,9 @@ impl ProxyServe {
                 Ok(_) => {
                     // Process cached status
                     let code = res.code.unwrap_or(500u16);
+
                     let status =
-                        StatusCode::try_from(code).unwrap_or(StatusCode::(code));
+                        StatusCode::try_from(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
                     // Process cached headers
                     let mut headers = HeaderMap::new();
@@ -282,13 +286,17 @@ impl ProxyServe {
                             String::from_utf8(Vec::from(header.name)),
                             String::from_utf8(Vec::from(header.value)),
                         ) {
-                          // fix me
-                          let str_value = HeaderValue::from_str(&header_value).unwrap();
-                            headers.insert(header_name.into(), str_value);
+                            // fix me
+                            let str_value = HeaderValue::from_str(&header_value).unwrap();
+                            let str_name = HeaderName::from_str(&header_name).unwrap();
+                            headers.append(str_name, str_value);
                         }
                     }
 
-                    ProxyHeader::set_etag(&mut headers, Self::fingerprint_etag(res_fingerprint));
+                    ProxyHeader::set_etag(
+                        &mut headers.into(),
+                        Self::fingerprint_etag(res_fingerprint),
+                    );
 
                     headers.typed_insert(HeaderBloomStatus(HeaderBloomStatusValue::Hit));
 

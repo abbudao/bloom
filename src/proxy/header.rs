@@ -4,7 +4,7 @@
 // Copyright: 2017, Valerian Saliou <valerian@valeriansaliou.name>
 // License: Mozilla Public License v2.0 (MPL v2.0)
 
-use headers::{ETag, Vary, HeaderMapExt};
+use headers::{ETag, HeaderMapExt, Vary};
 use hyper::HeaderMap;
 use std::str::from_utf8;
 use unicase::Ascii;
@@ -19,8 +19,9 @@ impl ProxyHeader {
         // Request header: 'Authorization'
         let auth = match headers.get("authorization") {
             None => defaults::REQUEST_AUTHORIZATION_DEFAULT,
-            Some(value) => from_utf8(value.as_bytes())
-                .unwrap_or(defaults::REQUEST_AUTHORIZATION_DEFAULT),
+            Some(value) => {
+                from_utf8(value.as_bytes()).unwrap_or(defaults::REQUEST_AUTHORIZATION_DEFAULT)
+            }
         }
         .to_string();
 
@@ -34,9 +35,7 @@ impl ProxyHeader {
     }
 
     pub fn set_etag(headers: &mut HeaderMap, etag: ETag) {
-        headers.insert::<Vary>(Vary::Items(vec![Ascii::new(
-            ETag::name()
-        )]));
+        headers.insert::<Vary>(Vary::Items(vec![Ascii::new(ETag::name())]));
 
         headers.typed_insert(etag);
     }
