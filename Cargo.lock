@@ -119,7 +119,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "test-log",
- "tokio-core",
+ "tokio",
  "toml",
  "tracing",
  "tracing-subscriber",
@@ -148,7 +148,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "thiserror",
- "tokio 1.26.0",
+ "tokio",
  "tokio-util",
  "url",
  "winapi 0.3.9",
@@ -316,43 +316,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-deque"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c20ff29ded3204c5106278a81a38f4b482636ed4fa1e6cfbeef193291beb29ed"
-dependencies = [
- "crossbeam-epoch",
- "crossbeam-utils",
- "maybe-uninit",
-]
-
-[[package]]
-name = "crossbeam-epoch"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "058ed274caafc1f60c4997b5fc07bf7dc7cca454af7c6e81edffe5f33f70dace"
-dependencies = [
- "autocfg",
- "cfg-if 0.1.10",
- "crossbeam-utils",
- "lazy_static",
- "maybe-uninit",
- "memoffset",
- "scopeguard",
-]
-
-[[package]]
-name = "crossbeam-queue"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "774ba60a54c213d409d5353bda12d49cd68d14e45036a285234c8d6f91f92570"
-dependencies = [
- "cfg-if 0.1.10",
- "crossbeam-utils",
- "maybe-uninit",
-]
-
-[[package]]
 name = "crossbeam-utils"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -480,7 +443,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tokio 1.26.0",
+ "tokio",
  "tracing",
 ]
 
@@ -690,7 +653,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio 1.26.0",
+ "tokio",
  "tokio-util",
  "tracing",
 ]
@@ -802,7 +765,7 @@ dependencies = [
  "itoa 1.0.6",
  "pin-project-lite",
  "socket2",
- "tokio 1.26.0",
+ "tokio",
  "tower-service",
  "tracing",
  "want",
@@ -818,7 +781,7 @@ dependencies = [
  "hex",
  "hyper",
  "pin-project",
- "tokio 1.26.0",
+ "tokio",
 ]
 
 [[package]]
@@ -980,15 +943,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "memoffset"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
-dependencies = [
- "autocfg",
-]
 
 [[package]]
 name = "mime"
@@ -1391,12 +1345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scoped-tls"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "332ffa32bf586782a3efaeb58f127980944bbc8c4d6913a86107ac2a5ab24b28"
-
-[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1676,30 +1624,6 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a09c0b5bb588872ab2f09afa13ee6e9dac11e10a0ec9e8e3ba39a5a5d530af6"
-dependencies = [
- "bytes 0.4.12",
- "futures 0.1.31",
- "mio 0.6.23",
- "num_cpus",
- "tokio-codec",
- "tokio-current-thread",
- "tokio-executor",
- "tokio-fs",
- "tokio-io",
- "tokio-reactor",
- "tokio-sync",
- "tokio-tcp",
- "tokio-threadpool",
- "tokio-timer",
- "tokio-udp",
- "tokio-uds",
-]
-
-[[package]]
-name = "tokio"
 version = "1.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03201d01c3c27a29c8a5cee5b55a93ddae1ccf6f08f65365c2c918f8c1b76f64"
@@ -1730,35 +1654,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-core"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87b1395334443abca552f63d4f61d0486f12377c2ba8b368e523f89e828cffd4"
-dependencies = [
- "bytes 0.4.12",
- "futures 0.1.31",
- "iovec",
- "log",
- "mio 0.6.23",
- "scoped-tls",
- "tokio 0.1.22",
- "tokio-executor",
- "tokio-io",
- "tokio-reactor",
- "tokio-timer",
-]
-
-[[package]]
-name = "tokio-current-thread"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1de0e32a83f131e002238d7ccde18211c0a5397f60cbfffcb112868c2e0e20e"
-dependencies = [
- "futures 0.1.31",
- "tokio-executor",
-]
-
-[[package]]
 name = "tokio-executor"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1766,17 +1661,6 @@ checksum = "fb2d1b8f4548dbf5e1f7818512e9c406860678f29c300cdf0ebac72d1a3a1671"
 dependencies = [
  "crossbeam-utils",
  "futures 0.1.31",
-]
-
-[[package]]
-name = "tokio-fs"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "297a1206e0ca6302a0eed35b700d292b275256f596e2f3fea7729d5e629b6ff4"
-dependencies = [
- "futures 0.1.31",
- "tokio-io",
- "tokio-threadpool",
 ]
 
 [[package]]
@@ -1845,50 +1729,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-threadpool"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df720b6581784c118f0eb4310796b12b1d242a7eb95f716a8367855325c25f89"
-dependencies = [
- "crossbeam-deque",
- "crossbeam-queue",
- "crossbeam-utils",
- "futures 0.1.31",
- "lazy_static",
- "log",
- "num_cpus",
- "slab",
- "tokio-executor",
-]
-
-[[package]]
-name = "tokio-timer"
-version = "0.2.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93044f2d313c95ff1cb7809ce9a7a05735b012288a888b62d4434fd58c94f296"
-dependencies = [
- "crossbeam-utils",
- "futures 0.1.31",
- "slab",
- "tokio-executor",
-]
-
-[[package]]
-name = "tokio-udp"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2a0b10e610b39c38b031a2fcab08e4b82f16ece36504988dcbd81dbba650d82"
-dependencies = [
- "bytes 0.4.12",
- "futures 0.1.31",
- "log",
- "mio 0.6.23",
- "tokio-codec",
- "tokio-io",
- "tokio-reactor",
-]
-
-[[package]]
 name = "tokio-uds"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1916,7 +1756,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
- "tokio 1.26.0",
+ "tokio",
  "tracing",
 ]
 

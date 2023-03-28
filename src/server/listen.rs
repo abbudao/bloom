@@ -8,13 +8,13 @@ use hyper::server::Server;
 use hyper::service::{make_service_fn, service_fn};
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
-use tokio_core::reactor::Remote;
+use tokio::runtime::Handle;
 
 use super::handle::server_handler;
 use crate::APP_CONF;
 
 lazy_static! {
-    pub static ref LISTEN_REMOTE: Arc<Mutex<Cell<Option<Remote>>>> =
+    pub static ref LISTEN_REMOTE: Arc<Mutex<Cell<Option<Handle>>>> =
         Arc::new(Mutex::new(Cell::new(None)));
 }
 

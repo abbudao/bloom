@@ -22,7 +22,6 @@ extern crate r2d2;
 extern crate r2d2_redis;
 extern crate rand;
 extern crate redis;
-extern crate tokio_core;
 extern crate toml;
 extern crate unicase;
 
@@ -109,8 +108,8 @@ fn spawn_worker() {
         spawn_worker();
     }
 }
-
-pub fn main() {
+#[tokio::main]
+async fn main() {
     let _logger = ConfigLogger::init(
         LevelFilter::from_str(&APP_CONF.server.log_level).expect("invalid log level"),
     );
@@ -121,7 +120,9 @@ pub fn main() {
     ensure_states();
 
     // Run control interface (in its own thread)
-    ControlListen::run();
+    tokio::spawn(async move {
+        ControlListen::run().await;
+    });
 
     // Run server (from main thread, maintain thread active if down)
     spawn_worker();

@@ -6,8 +6,9 @@
 
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use std::io::{ErrorKind, Read, Write};
-use std::net::TcpStream;
+use tokio::io::AsyncWriteExt;
+use std::io::ErrorKind;
+use tokio::net::TcpStream;
 use std::result::Result;
 use std::str;
 use std::time::Duration;
@@ -77,7 +78,7 @@ impl ControlHandle {
         ControlHandle::configure_stream(&stream, false);
 
         // Send connected banner
-        write!(stream, "{}{}", *CONNECTED_BANNER, LINE_FEED).expect("write failed");
+        stream.write(format!("{}{}", *CONNECTED_BANNER, LINE_FEED).as_bytes());
 
         // Ensure client hasher is compatible
         match Self::ensure_hasher(&stream) {
@@ -86,7 +87,7 @@ impl ControlHandle {
                 ControlHandle::configure_stream(&stream, true);
 
                 // Send started acknowledgement
-                write!(stream, "STARTED{LINE_FEED}").expect("write failed");
+                stream.write(format!("STARTED{LINE_FEED}").as_bytes());
 
                 // Select initial shard
                 let mut shard = SHARD_INITIAL;
