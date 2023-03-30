@@ -43,6 +43,7 @@ debug = true
 debug-assertions = true
 
 [profile.release]
+codegen-units = 1
 opt-level = "s"
 lto = true
 debug = false
